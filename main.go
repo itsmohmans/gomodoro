@@ -21,9 +21,23 @@ func init() {
 	flag.Parse()
 }
 
-func main() {
+func startTimer() {
+	fmt.Printf("Starting a %v work session..\n", workDuration)
 
-	fmt.Printf("Starting a %v work session..", workDuration)
-	time.Sleep(workDuration)
-	fmt.Printf("Go take a %v break", breakDuration)
+	timer := time.NewTimer(workDuration)
+	ticker := time.NewTicker(1 * time.Second)
+	for {
+		select {
+		case <-timer.C:
+			ticker.Stop()
+			fmt.Printf("\nGo take a %.0f-minute break\n", breakDuration.Minutes())
+			return
+		case <-ticker.C:
+			fmt.Printf(".")
+		}
+	}
+}
+
+func main() {
+	startTimer()
 }
