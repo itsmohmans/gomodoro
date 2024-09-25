@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"os/exec"
 	"time"
 
 	"github.com/schollz/progressbar/v3"
@@ -23,6 +24,7 @@ var (
 var (
 	maxSessions    int
 	sessionNumber  int
+	sound          bool
 	currentSession SessionType
 )
 
@@ -31,6 +33,7 @@ func init() {
 	flag.DurationVar(&Break.Duration, "break", 5*time.Minute, "Specifies the break duration in minutes (e.g. 5m).")
 	flag.DurationVar(&LongBreak.Duration, "longbreak", 15*time.Minute, "Specifies the long break duration in minutes (e.g. 10m).")
 	flag.IntVar(&maxSessions, "sessions", 3, "Specifies the number of work sessions before a long break.")
+	flag.BoolVar(&sound, "sound", false, "Specifies whether the timer should play a beep sound or not when the time's up.")
 	flag.Parse()
 	currentSession = Work
 	sessionNumber = 1
@@ -71,6 +74,15 @@ func switchSession() {
 	}
 }
 
+func playSound(filePath string) {
+	// For linux only ig for now, make sure `aplay` is installed
+	// TODO: use https://github.com/gopxl/beep to handle this instead
+	err := exec.Command("aplay", filePath).Run()
+	if err != nil {
+		fmt.Println("Error playing sound:", err)
+	}
+}
+
 func startTimer() {
 	// fmt.Printf("Starting timer:\n [1/%d] a %v %s session.\n", maxSessions, currentSession.Duration, currentSession.Name)
 	var bar *progressbar.ProgressBar
@@ -82,6 +94,9 @@ func startTimer() {
 	for {
 		select {
 		case <-timer.C:
+			if sound {
+				playSound("./sounds/chime.wav")
+			}
 			// fmt.Printf("Just finished a %s session, the next session is ", currentSession.Name)
 			switchSession()
 			// fmt.Printf("a %v %s.\n", currentSession.Duration, currentSession.Name)
