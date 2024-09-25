@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"time"
+
+	"github.com/schollz/progressbar/v3"
 )
 
 type SessionType struct {
@@ -70,26 +72,32 @@ func switchSession() {
 }
 
 func startTimer() {
-	fmt.Printf("Starting timer:\n [1/%d] a %v %s session.\n", maxSessions, currentSession.Duration, currentSession.Name)
-
+	// fmt.Printf("Starting timer:\n [1/%d] a %v %s session.\n", maxSessions, currentSession.Duration, currentSession.Name)
+	var bar *progressbar.ProgressBar
 	secs := 0
 
 	timer := time.NewTimer(currentSession.Duration)
 	ticker := time.NewTicker(1 * time.Second)
+	bar = progressbar.Default(int64(currentSession.Duration.Seconds()), fmt.Sprintf("%s: [%d/%d]", currentSession.Name, sessionNumber, maxSessions))
 	for {
 		select {
 		case <-timer.C:
-			fmt.Printf("Just finished a %s session, the next session is ", currentSession.Name)
+			// fmt.Printf("Just finished a %s session, the next session is ", currentSession.Name)
 			switchSession()
-			fmt.Printf("a %v %s.\n", currentSession.Duration, currentSession.Name)
+			// fmt.Printf("a %v %s.\n", currentSession.Duration, currentSession.Name)
 			timer.Reset(currentSession.Duration)
 			secs = 0
+			// bar = progressbar.Default(int64(currentSession.Duration.Seconds()), fmt.Sprintf("%s: [%d/%d]", currentSession.Name, sessionNumber, maxSessions))
+			bar.Clear()
+			bar.Reset()
+			bar.Describe(fmt.Sprintf("%s: [%d/%d]", currentSession.Name, sessionNumber, maxSessions))
 			// return
 		case <-ticker.C:
 			secs++
-			fmt.Printf("%d/%v\n", secs, currentSession.Duration.Seconds())
+			bar.Add(1)
+			// fmt.Printf("%d/%v\n", secs, currentSession.Duration.Seconds())
 		default:
-			time.Sleep(1 * time.Second)
+			time.Sleep(100 * time.Millisecond)
 		}
 	}
 }
