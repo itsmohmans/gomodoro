@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -80,8 +81,8 @@ func switchSession() {
 func startNextSession(timer *time.Timer, bar *progressbar.ProgressBar) {
 	timer.Reset(currentSession.Duration)
 	bar.Clear()
-	// FIXME: the progress bar should take the new session's duration value as well
 	bar.Reset()
+	bar.ChangeMax(int(currentSession.Duration.Seconds()))
 	bar.Describe(fmt.Sprintf("%s: [%d/%d]", currentSession.Name, sessionNumber, maxSessions))
 }
 
@@ -97,10 +98,27 @@ func playSound(filePath string) {
 func startTimer() {
 	timer := time.NewTimer(currentSession.Duration)
 	ticker := time.NewTicker(1 * time.Second)
-	bar := progressbar.Default(int64(currentSession.Duration.Seconds()), fmt.Sprintf("%s: [%d/%d]", currentSession.Name, sessionNumber, maxSessions))
+	bar := progressbar.NewOptions(
+		int(currentSession.Duration.Seconds()),
+		progressbar.OptionSetDescription(fmt.Sprintf("%s [%d/%d]:", currentSession.Name, sessionNumber, maxSessions)),
+		progressbar.OptionSetPredictTime(false),
+		progressbar.OptionSetElapsedTime(false),
+		progressbar.OptionFullWidth(),
+		progressbar.OptionSetWriter(os.Stdout),
+		progressbar.OptionEnableColorCodes(true),
+		// progressbar.OptionClearOnFinish(),
+		progressbar.OptionSetTheme(progressbar.Theme{
+			Saucer:        "[green]=[reset]",
+			SaucerHead:    "[yellow]|[reset]",
+			SaucerPadding: " ",
+			BarStart:      "[",
+			BarEnd:        "]",
+		}),
+	)
 	for {
 		select {
 		case <-timer.C:
+			bar.Finish()
 			if sound {
 				playSound("./sounds/chime.wav")
 			}
@@ -117,7 +135,6 @@ func startTimer() {
 				} else {
 					timer.Stop()
 					ticker.Stop()
-					bar.Close()
 					return
 				}
 			} else {
