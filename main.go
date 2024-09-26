@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/schollz/progressbar/v3"
@@ -25,15 +26,18 @@ var (
 	maxSessions    int
 	sessionNumber  int
 	sound          bool
+	autostart      bool
 	currentSession SessionType
 )
 
 func init() {
+	// FIXME: check and invalidate negative value or invalid inputs
 	flag.DurationVar(&Work.Duration, "work", 25*time.Minute, "Specifies the work duration in minutes (e.g. 25m).")
 	flag.DurationVar(&Break.Duration, "break", 5*time.Minute, "Specifies the break duration in minutes (e.g. 5m).")
 	flag.DurationVar(&LongBreak.Duration, "longbreak", 15*time.Minute, "Specifies the long break duration in minutes (e.g. 10m).")
 	flag.IntVar(&maxSessions, "sessions", 3, "Specifies the number of work sessions before a long break.")
 	flag.BoolVar(&sound, "sound", false, "Specifies whether the timer should play a beep sound or not when the time's up.")
+	flag.BoolVar(&autostart, "auto", false, "Specifies whether the timer should automatically start the next session.")
 	flag.Parse()
 	currentSession = Work
 	sessionNumber = 1
@@ -73,6 +77,13 @@ func switchSession() {
 		}
 	}
 }
+func startNextSession(timer *time.Timer, bar *progressbar.ProgressBar) {
+	timer.Reset(currentSession.Duration)
+	bar.Clear()
+	// FIXME: the progress bar should take the new session's duration value as well
+	bar.Reset()
+	bar.Describe(fmt.Sprintf("%s: [%d/%d]", currentSession.Name, sessionNumber, maxSessions))
+}
 
 func playSound(filePath string) {
 	// For linux only ig for now, make sure `aplay` is installed
@@ -84,33 +95,36 @@ func playSound(filePath string) {
 }
 
 func startTimer() {
-	// fmt.Printf("Starting timer:\n [1/%d] a %v %s session.\n", maxSessions, currentSession.Duration, currentSession.Name)
-	var bar *progressbar.ProgressBar
-	secs := 0
-
 	timer := time.NewTimer(currentSession.Duration)
 	ticker := time.NewTicker(1 * time.Second)
-	bar = progressbar.Default(int64(currentSession.Duration.Seconds()), fmt.Sprintf("%s: [%d/%d]", currentSession.Name, sessionNumber, maxSessions))
+	bar := progressbar.Default(int64(currentSession.Duration.Seconds()), fmt.Sprintf("%s: [%d/%d]", currentSession.Name, sessionNumber, maxSessions))
 	for {
 		select {
 		case <-timer.C:
 			if sound {
 				playSound("./sounds/chime.wav")
 			}
-			// fmt.Printf("Just finished a %s session, the next session is ", currentSession.Name)
 			switchSession()
-			// fmt.Printf("a %v %s.\n", currentSession.Duration, currentSession.Name)
-			timer.Reset(currentSession.Duration)
-			secs = 0
-			// bar = progressbar.Default(int64(currentSession.Duration.Seconds()), fmt.Sprintf("%s: [%d/%d]", currentSession.Name, sessionNumber, maxSessions))
-			bar.Clear()
-			bar.Reset()
-			bar.Describe(fmt.Sprintf("%s: [%d/%d]", currentSession.Name, sessionNumber, maxSessions))
-			// return
+			if !autostart {
+				var startNext string
+				fmt.Printf("\nStart next session: %v %s (Y/n -- exit)? ", currentSession.Duration, currentSession.Name)
+				_, err := fmt.Scanln(&startNext)
+				// FIXME: Error reading input: unexpected newline
+				if err != nil {
+					fmt.Println("Error reading input: ", err)
+				}
+				if strings.ToLower(startNext) == "y" || startNext == "" {
+					startNextSession(timer, bar)
+				} else {
+					timer.Stop()
+					ticker.Stop()
+					return
+				}
+			} else {
+				startNextSession(timer, bar)
+			}
 		case <-ticker.C:
-			secs++
 			bar.Add(1)
-			// fmt.Printf("%d/%v\n", secs, currentSession.Duration.Seconds())
 		default:
 			time.Sleep(100 * time.Millisecond)
 		}
