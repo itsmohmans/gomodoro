@@ -106,18 +106,18 @@ func startTimer() {
 			}
 			switchSession()
 			if !autostart {
-				var startNext string
+				var startNext rune
 				fmt.Printf("\nStart next session: %v %s (Y/n -- exit)? ", currentSession.Duration, currentSession.Name)
-				_, err := fmt.Scanln(&startNext)
-				// FIXME: Error reading input: unexpected newline
+				_, err := fmt.Scanf("%c", &startNext)
 				if err != nil {
 					fmt.Println("Error reading input: ", err)
 				}
-				if strings.ToLower(startNext) == "y" || startNext == "" {
+				if strings.ToLower(string(startNext)) == "y" || startNext == '\n' {
 					startNextSession(timer, bar)
 				} else {
 					timer.Stop()
 					ticker.Stop()
+					bar.Close()
 					return
 				}
 			} else {
